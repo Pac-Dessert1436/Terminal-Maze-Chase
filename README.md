@@ -1,79 +1,115 @@
-# Terminal Pac-Man Game in VB.NET
+# Terminal Maze Chase 🎮
+
+> **ARCHIVED REPOSITORY**: This repository has been renamed to **Terminal-Maze-Chase** and is now archived. It is no longer actively maintained.
+
+## ⚠️ Disclaimer / Legal Notes
+This is a fan-made, educational project only. It is not affiliated with, endorsed, or sponsored by Bandai Namco Entertainment Inc. Pac-Man™ is a registered trademark of Bandai Namco Entertainment Inc. All rights belong to their respective owners.
+
+This implementation is **for demonstration and learning purposes only**, and is not intended for commercial use or redistribution.
+
+---
 
 ## Overview
 
-This is a simple implementation of the classic Pac-Man game, designed to run in a terminal environment using VB.NET. The game features basic gameplay mechanics, including player movement, enemy AI, power pellets, and level progression. It is intended for educational purposes and as a fun project for developers interested in game development with VB.NET.
+A classic Pac-Man-style maze chase game implemented in VB.NET, designed to run entirely in your terminal! Navigate through a neon green maze, collect pellets, avoid ghosts, and survive as long as you can.
 
 ![](screenshot.png)
 
 ## Features
 
-- **Classic Gameplay**: Navigate through a maze, collect pellets, and avoid ghosts.
-- **Power Pellets**: Temporarily turn the tables on the ghosts.
-- **Level Progression**: Multiple levels with increasing difficulty.
-- **Terminal-Based Graphics**: Simple text-based interface for easy accessibility.
-- **Enemy AI**: Basic pathfinding for ghost movement using A* algorithm.
-- **Score Tracking**: Keep track of your score and lives.
+- 🎯 **Classic Gameplay**: Navigate through the maze, collect pellets, and avoid ghosts
+- ⚡ **Power Pellets**: Turn the tables on ghosts temporarily
+- 📈 **Level Progression**: 7 levels of increasing difficulty
+- 🖥️ **Terminal-Based**: No graphics required - pure text-based fun
+- 🧠 **Advanced AI**: Ghosts use A* pathfinding for intelligent chasing
+- 🏆 **Score Tracking**: Keep track of your high score and lives
 
 ## Getting Started
 
 ### Prerequisites
-- **.NET SDK 8.0**: Ensure you have the .NET SDK 8.0 installed on your system (.NET Framework might be optional but is recommended).
-- **VB.NET Compiler**: You can use Visual Studio or any other VB.NET compiler to run this project.
+- **.NET SDK 8.0** or later
+- A terminal that supports ANSI color codes
 
 ### Installation
-1. Clone the repository:
-``` bash
-git clone https://github.com/Pac-Dessert1436/Terminal-PAC-MAN-Game.git
-```
-2. Navigate to the project directory:
-``` bash
-cd Terminal-PAC-MAN-Game
-``` 
-3. Open the project in Visual Studio or your preferred IDE.
 
-4. Compile and run the project.
+```bash
+git clone https://github.com/Pac-Dessert1436/Terminal-Maze-Chase.git
+cd Terminal-Maze-Chase
+dotnet run
+```
+
+Or open the project in Visual Studio and run it directly.
 
 ## Controls
 
-- **Arrow Keys**: Move Pac-Man up, down, left, and right.
-- **Enter Key**: Start the game from the title screen.
+| Key | Action |
+|-----|--------|
+| ↑ | Move Up |
+| ↓ | Move Down |
+| ← | Move Left |
+| → | Move Right |
+| Enter | Start Game |
 
 ## Gameplay Mechanics
 
-### Player
-- The player controls Pac-Man, represented by the `@` symbol.
-- Collect pellets (`.`) and power pellets (`*`) to increase your score.
-- Avoid ghosts represented by the `&` symbol.
-- Remember to collect cherries (`%`) that appears from time to time!
+### Player (`@`)
+- Collect pellets (`.`) for 10 points each
+- Eat power pellets (`*`) for 50 points to turn ghosts scared
+- Catch cherries (`%`) for bonus points (100 + 200 × level)
+- Avoid ghosts (`&`) at all costs!
 
-### Ghosts
-- Ghosts move around the maze using a basic A* pathfinding algorithm. The algorithm is somewhat inaccurate for the moment, and therefore needs future improvements. 
-- When a power pellet is eaten, ghosts turn scared (represented by a cyan `&`) and can be eaten for bonus points.
+### Ghosts (`&`)
+- **Red Ghost**: Aggressively chases the player
+- **Magenta Ghost**: Targets 4 tiles ahead of player movement
+- **Cyan Ghost**: Uses ambush strategy from behind
+- **Yellow Ghost**: Random movement pattern
+- When scared (blue), ghosts flee from the player
 
-### Scoring
-- **Pellets**: 10 points each.
-- **Power Pellets**: 50 points each.
-- **Ghosts (when scared)**: 200 points for the first, double for the subsequent.
-- **Cherries**: 100 points at the first level, 300 points for the second, and so forth.
+### Scoring System
 
-### Levels
-- Complete levels by clearing all pellets.
-- The game progresses through multiple levels with increasing difficulty.
-- The game ends after Level 7 is completed.
+| Item | Points |
+|------|--------|
+| Pellet (`.`) | 10 |
+| Power Pellet (`*`) | 50 |
+| Ghost (when scared) | 200, 400, 800, 1600... |
+| Cherry (`%`) | 100 + 200 × level |
 
 ### Lives
-- The player starts with 3 lives.
-- An extra life is awarded at 10,000 points.
+- Start with 3 lives
+- Earn an extra life at 10,000 points
+- Game ends when lives reach 0 or all 7 levels are completed
 
-### Code Structure
-- **`Program` Module**: Contains the main game loop, player logic, and enemy logic.
-- **`GridIndex` Structure**: Represents coordinates in the game grid.
-- **`AStarAlgorithm` Class**: Implements the A* pathfinding algorithm for ghost movement.
-- **Game Map**: A 2D array representing the maze layout.
+## Code Structure
 
-### Contributing
-Contributions are welcome! If you have any ideas for new features, improvements, or bug fixes, please feel free to open an issue or submit a pull request.
+```
+Program.vb
+├── Program Module            # Main game loop and logic
+│   ├── Main()                # Entry point
+│   ├── GameplayProcess()     # Core game mechanics
+│   └── DisplayTitleScreen()  # Display game title screen
+├── GridIndex Structure       # 2D coordinate system
+└── AStarAlgorithm Class      # Pathfinding for ghosts
+```
 
-### License
-This project is licensed under the MIT License. See the LICENSE file for details.
+## Technical Details
+
+### A* Pathfinding Algorithm
+The ghost AI uses an optimized A* algorithm with:
+- Manhattan distance heuristic for better performance
+- Priority queue for efficient open list management
+- Dictionary-based g-score tracking
+
+### Ghost Behavior
+Each ghost has unique targeting behavior:
+- **Blinky (Red)**: Directly chases the player
+- **Pinky (Magenta)**: Aims 4 tiles ahead of player's direction
+- **Inky (Cyan)**: Uses Blinky's position to create ambush paths
+- **Clyde (Yellow)**: Random movement for unpredictability
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+_🎮 Happy maze chasing!_

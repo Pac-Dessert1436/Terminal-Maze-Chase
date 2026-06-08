@@ -3,18 +3,35 @@ Option Infer On
 Imports System.Diagnostics.CodeAnalysis
 
 Public Module Program
-    Friend playerPos As New GridIndex(17, 10), pressedKey As New ConsoleKeyInfo
-    Friend ReadOnly fruitTimer As New Stopwatch, scaredTimer As New Stopwatch
+    Private playerPos As New GridIndex(17, 10)
+    Private pressedKey As New ConsoleKeyInfo
+    Private ReadOnly fruitTimer As New Stopwatch
+    Private ReadOnly scaredTimer As New Stopwatch
 
-    Friend ReadOnly Property InitialEnemyInfo As (pos As GridIndex, scared As Boolean)() =
-        New(pos As GridIndex, scared As Boolean)(3) {
-            (New GridIndex(10, 10), False), (New GridIndex(11, 9), False),
-            (New GridIndex(11, 10), False), (New GridIndex(11, 11), False)
-        }
+    Private NotInheritable Class EnemyInfo
+        Public Property CurrPos As GridIndex
+        Public Property Scared As Boolean
+        Public Property Color As ConsoleColor
+        Public ReadOnly Property InitialPos As GridIndex
 
-    Friend ReadOnly Property InitialGameMap As Char(,)
+        Public Sub New(pos As GridIndex, scared As Boolean, color As ConsoleColor)
+            InitialPos = pos
+            CurrPos = pos
+            Me.Scared = scared
+            Me.Color = color
+        End Sub
+    End Class
+
+    Private ReadOnly Property InitialEnemyInfo As EnemyInfo() = {
+        New EnemyInfo(New GridIndex(10, 10), False, ConsoleColor.Red),
+        New EnemyInfo(New GridIndex(11, 9), False, ConsoleColor.Magenta),
+        New EnemyInfo(New GridIndex(11, 10), False, ConsoleColor.Cyan),
+        New EnemyInfo(New GridIndex(11, 11), False, ConsoleColor.Yellow)
+    }
+
+    Private ReadOnly Property InitialGameMap As Char(,)
         Get
-            Dim mapContent As String() = New String(20) {
+            Dim mapContent As String() = {
                 "########## ############",
                 "#.*....### ####..*#...#",
                 "#.##.#.### ####.#.#.#.#",
@@ -56,9 +73,9 @@ Public Module Program
         Console.Clear()  ' Clear the terminal for the title screen display.
         Console.CursorVisible = False
         Randomize()
-        
+
         Dim currGameMap As Char(,) = CType(InitialGameMap.Clone(), Char(,))
-        Dim currEnemyInfo(3) As (pos As GridIndex, scared As Boolean)
+        Dim currEnemyInfo(3) As EnemyInfo
         Array.Copy(InitialEnemyInfo, currEnemyInfo, InitialEnemyInfo.Length)
         Dim playerScore As New Integer, playerLives As Integer = 3, currLevel As Integer = 1
 
@@ -75,25 +92,41 @@ Public Module Program
                          If Not isGameInProcess Then Continue Do
                          Dim enemyDirections(3) As GridIndex, targetPos As GridIndex
                          For i As Integer = 0 To UBound(currEnemyInfo) Step 1
-                             Select Case i
-                                 Case 0
-                                     targetPos = playerPos
-                                 Case 1
-                                     targetPos = playerPos - PlayerDirection * 4
-                                 Case 2
-                                     targetPos = currEnemyInfo(0).pos * 2 - playerPos
-                                 Case 3
-                                     targetPos = GetRandomTarget()
-                             End Select
+                             If currEnemyInfo(i).Scared Then
+                                 targetPos = playerPos * (-1) + New GridIndex(UBound(InitialGameMap, 1) \ 2, UBound(InitialGameMap, 2) \ 2) * 2
+                             Else
+                                 Select Case i
+                                     Case 0
+                                         targetPos = playerPos
+                                     Case 1
+                                         targetPos = playerPos - PlayerDirection * 4
+                                     Case 2
+                                         targetPos = currEnemyInfo(0).CurrPos * 2 - playerPos
+                                     Case 3
+                                         targetPos = GetRandomTarget()
+                                 End Select
+                             End If
                              Dim ghostRoute = AStarAlgorithm.FindUniqueRoute(WalkableTerrain,
-                                    currEnemyInfo(i).pos + enemyDirections(i), targetPos)
+                                    currEnemyInfo(i).CurrPos, targetPos)
 
-                             If ghostRoute.Count > 0 Then enemyDirections(i) = ghostRoute(0)
-                             currEnemyInfo(i).pos += enemyDirections(i)
-                             If isPowerPelletEaten Then currEnemyInfo(i).scared = True
-                             If Not scaredTimer.IsRunning Then currEnemyInfo(i).scared = False
+                             If ghostRoute.Count > 0 Then
+                                 Dim nextPos = currEnemyInfo(i).CurrPos + ghostRoute(0)
+                                 If IsWalkable(nextPos) Then
+                                     enemyDirections(i) = ghostRoute(0)
+                                 Else
+                                     enemyDirections(i) = GetRandomDirection(currEnemyInfo(i).CurrPos)
+                                 End If
+                             Else
+                                 enemyDirections(i) = GetRandomDirection(currEnemyInfo(i).CurrPos)
+                             End If
+                             Dim newPos = currEnemyInfo(i).CurrPos + enemyDirections(i)
+                             If IsWalkable(newPos) Then
+                                 currEnemyInfo(i).CurrPos = newPos
+                             End If
+                             If isPowerPelletEaten Then currEnemyInfo(i).Scared = True
+                             If Not scaredTimer.IsRunning Then currEnemyInfo(i).Scared = False
                          Next i
-                         If currEnemyInfo.All(Function(enemy) enemy.scared) Then
+                         If currEnemyInfo.All(Function(enemy) enemy.Scared) Then
                              isPowerPelletEaten = False
                          End If
                      Loop
@@ -108,13 +141,13 @@ Public Module Program
         Loop
     End Sub
 
-    <Runtime.CompilerServices.Extension> Friend Sub StopAndReset(stopwatch As Stopwatch)
+    <Runtime.CompilerServices.Extension> Private Sub StopAndReset(stopwatch As Stopwatch)
         ' The process of stoping and resetting the in-game timers will be condensed to
         ' this unique extension method.
         With stopwatch : .Stop() : .Reset() : End With
     End Sub
 
-    Friend ReadOnly Property WalkableTerrain As Boolean(,)
+    Private ReadOnly Property WalkableTerrain As Boolean(,)
         Get
             Dim maxRowIdx = UBound(InitialGameMap, 1), maxColIdx = UBound(InitialGameMap, 2)
             Dim terrain(maxRowIdx, maxColIdx) As Boolean
@@ -130,7 +163,7 @@ Public Module Program
     Private ReadOnly Property TimerThreshold(level As Integer, isForGhost As Boolean) As Double
         Get
             If isForGhost Then
-                Return If(level < 5, 10 - level * 1.5, 5) * 1000
+                Return If(level < 5, 12 - level * 1.5, 7) * 1000
             Else
                 Return If(level < 5, 8 + level * 1.5, 15) * 1000
             End If
@@ -140,14 +173,14 @@ Public Module Program
     Private Sub DisplayTitleScreen()
         Console.ForegroundColor = ConsoleColor.White
         Console.SetCursorPosition(7, 5)
-        Console.Write("-* TERMINAL PAC-MAN GAME *-")
+        Console.Write("-* TERMINAL MAZE CHASE *-")
         Console.SetCursorPosition(5, 7)
         Console.Write("Press ""Enter"" to begin the game.")
         If pressedKey.Key = ConsoleKey.Enter Then isGameInProcess = True
     End Sub
 
     Private Sub GameplayProcess(ByRef gameMap As Char(,), ByRef score%, ByRef lives%,
-             ByRef level%, ByRef enemyInfo As (pos As GridIndex, scared As Boolean)())
+             ByRef level%, ByRef enemyInfo As EnemyInfo())
 
         Static bonusMult As New Integer, playerHasExtraLife As Boolean = False
         Console.Clear()
@@ -187,12 +220,10 @@ Public Module Program
             For x As Integer = 0 To UBound(gameMap, 1) Step 1
                 Select Case gameMap(x, y)
                     Case "#"c
-                        Console.ForegroundColor = ConsoleColor.Blue
-                    Case "*"c
-                        Console.ForegroundColor = ConsoleColor.Cyan
+                        Console.ForegroundColor = ConsoleColor.Green
                     Case "%"c
-                        Console.ForegroundColor = ConsoleColor.Magenta
-                    Case "."c
+                        Console.ForegroundColor = ConsoleColor.DarkRed
+                    Case "*"c, "."c
                         Console.ForegroundColor = ConsoleColor.White
                 End Select
                 Console.Write(gameMap(x, y))
@@ -201,18 +232,23 @@ Public Module Program
         Next y
 
         Dim isCaughtByGhost As Boolean = False
-        For Each enemy As (pos As GridIndex, scared As Boolean) In enemyInfo
-            Console.ForegroundColor = If(enemy.scared, ConsoleColor.Cyan, ConsoleColor.Red)
-            Console.SetCursorPosition(enemy.pos.x, enemy.pos.y)
+        For Each enemy As EnemyInfo In enemyInfo
+            Console.ForegroundColor = If(enemy.Scared, ConsoleColor.Blue, enemy.Color)
+            Console.SetCursorPosition(enemy.CurrPos.x, enemy.CurrPos.y)
             Console.Write("&"c)
-            If Not enemy.scared AndAlso enemy.pos = playerPos Then isCaughtByGhost = True
+            If Not enemy.Scared AndAlso enemy.CurrPos = playerPos Then isCaughtByGhost = True
         Next enemy
         If isCaughtByGhost Then
             lives -= 1
             fruitTimer.StopAndReset()
+            scaredTimer.StopAndReset()
+            isPowerPelletEaten = False
             gameMap(13, 10) = " "c
             playerPos = New GridIndex(17, 10)
-            Array.Copy(InitialEnemyInfo, enemyInfo, InitialEnemyInfo.Length)
+            For i As Integer = 0 To UBound(enemyInfo)
+                enemyInfo(i).CurrPos = InitialEnemyInfo(i).InitialPos
+                enemyInfo(i).Scared = False
+            Next
         End If
 
         With scaredTimer
@@ -220,9 +256,9 @@ Public Module Program
                 Dim millisecLeft# = TimerThreshold(level, True) - .ElapsedMilliseconds
 
                 For i As Integer = 0 To UBound(enemyInfo) Step 1
-                    If playerPos = enemyInfo(i).pos Then
-                        enemyInfo(i).pos = InitialEnemyInfo(i).pos
-                        enemyInfo(i).scared = False
+                    If playerPos = enemyInfo(i).CurrPos Then
+                        enemyInfo(i).CurrPos = InitialEnemyInfo(i).CurrPos
+                        enemyInfo(i).Scared = False
                         bonusMult += 1
                         score += CInt(2 ^ bonusMult * 100)
                     End If
@@ -233,9 +269,9 @@ Public Module Program
                     End If
                 Next i
                 If millisecLeft > 0 Then
-                    Console.ForegroundColor = ConsoleColor.Cyan
+                    Console.ForegroundColor = ConsoleColor.Yellow
                     Console.SetCursorPosition(25, 5)
-                    Console.Write($"Power-up: {Math.Floor(millisecLeft / 1000)} sec. left")
+                    Console.Write($"POWERUP: {Math.Floor(millisecLeft / 1000)} sec. left")
                 End If
             End If
         End With
@@ -295,7 +331,7 @@ Public Module Program
         Console.SetCursorPosition(25, 1)
         Console.Write($"Lives: {New String("@"c, lives - 1)}")
 
-        Console.ForegroundColor = ConsoleColor.Magenta
+        Console.ForegroundColor = ConsoleColor.DarkRed
         Console.SetCursorPosition(25, 3)
         Console.Write(New String("%"c, level))
 
@@ -316,12 +352,36 @@ Public Module Program
 
     Private ReadOnly Property MaxLineIndex(lines As String()) As Integer
         Get
-            Dim longestLine = Aggregate line As String In lines
-                                  Order By line.Length Descending Into First()
+            Dim longestLine =
+                Aggregate line As String In lines Order By line.Length Descending Into First()
 
             Return UBound(longestLine.ToCharArray())
         End Get
     End Property
+
+    Private Function GetRandomDirection(currentPos As GridIndex) As GridIndex
+        Dim directions As New List(Of GridIndex) From {
+            GridIndex.Up, GridIndex.Down, GridIndex.Left, GridIndex.Right
+        }
+        Dim validDirections As New List(Of GridIndex)
+
+        For Each dir As GridIndex In directions
+            Dim nextPos = currentPos + dir
+            If IsWalkable(nextPos) Then validDirections.Add(dir)
+        Next dir
+
+        If validDirections.Count > 0 Then
+            Return validDirections(CInt(Rnd() * (validDirections.Count - 1)))
+        End If
+
+        Return GridIndex.Up
+    End Function
+
+    Private Function IsWalkable(pos As GridIndex) As Boolean
+        Return pos.x >= 0 AndAlso pos.x <= UBound(WalkableTerrain, 1) AndAlso
+               pos.y >= 0 AndAlso pos.y <= UBound(WalkableTerrain, 2) AndAlso
+               WalkableTerrain(pos.x, pos.y)
+    End Function
 End Module
 
 Friend Structure GridIndex
@@ -354,7 +414,7 @@ Friend Structure GridIndex
     End Operator
 
     Public Shared Operator *(vec As GridIndex, scale As Integer) As GridIndex
-        Return New GridIndex(vec.x - scale, vec.y - scale)
+        Return New GridIndex(vec.x * scale, vec.y * scale)
     End Operator
 
     Public Shared ReadOnly Property Up As New GridIndex(0, -1)
@@ -369,17 +429,6 @@ End Structure
 
 Friend NotInheritable Class AStarAlgorithm
     Private ReadOnly gridIdx As GridIndex
-    Private costF As Integer, costG As Integer, costH As Integer
-
-    Private ReadOnly Property PreviousRef As AStarAlgorithm
-
-    Private Shared ReadOnly StandardDirections As GridIndex() =
-        New GridIndex(3) {GridIndex.Up, GridIndex.Down, GridIndex.Right, GridIndex.Left}
-
-    Private Sub New(gridIdx As GridIndex, Optional prevRef As AStarAlgorithm = Nothing)
-        Me.gridIdx = gridIdx
-        PreviousRef = prevRef
-    End Sub
 
     Public Overrides Function Equals(obj As Object) As Boolean
         Dim other As AStarAlgorithm = TryCast(obj, AStarAlgorithm)
@@ -392,100 +441,76 @@ Friend NotInheritable Class AStarAlgorithm
 
     Public Shared Function FindUniqueRoute(walkableTerrain As Boolean(,),
              startGridIdx As GridIndex, finishGridIdx As GridIndex) As List(Of GridIndex)
-        ' Note: This function doesn't return specific grid indices of the result path,
-        ' but indicates the movement from one grid index to the next.
-        Dim startPoint As New AStarAlgorithm(startGridIdx)
-        Dim finishPoint As New AStarAlgorithm(finishGridIdx)
-        Dim openList As New List(Of AStarAlgorithm) From {startPoint}
-        Dim closedList As New List(Of AStarAlgorithm)
 
-        Dim SquaredMagnitude = Function(left As GridIndex, right As GridIndex) As Integer
-                                   Dim sqrDiffX As Double = (left.x - right.x) ^ 2
-                                   Dim sqrDiffY As Double = (left.y - right.y) ^ 2
-                                   Return CInt(sqrDiffX + sqrDiffY)
-                               End Function
-        Dim CalcDotProduct = Function(left As GridIndex, right As GridIndex) As Integer
-                                 Return left.x * right.x + left.y * right.y
-                             End Function
+        If startGridIdx = finishGridIdx Then
+            Return New List(Of GridIndex)()
+        End If
 
-        Do Until openList.Count = 0
-            ' Sort the open list in an ascending order by F cost, remove its duplicates,
-            ' and then choose its first item.
-            openList = New List(Of AStarAlgorithm) _
-                (From openPoint In openList Order By openPoint.costF Ascending Distinct)
-            Dim currPoint As AStarAlgorithm = openList.First()
-            ' Don't add the current point to the closed list repeatedly.
-            If Not closedList.Contains(currPoint) Then closedList.Add(currPoint)
-            openList.Remove(currPoint)
+        If finishGridIdx.x < 0 OrElse finishGridIdx.x > UBound(walkableTerrain, 1) OrElse
+           finishGridIdx.y < 0 OrElse finishGridIdx.y > UBound(walkableTerrain, 2) OrElse
+           Not walkableTerrain(finishGridIdx.x, finishGridIdx.y) Then
+            Return New List(Of GridIndex)()
+        End If
 
-            If currPoint.gridIdx = finishPoint.gridIdx Then
-                Dim resultPath As New List(Of GridIndex), route As New List(Of GridIndex)
+        Dim openList As New PriorityQueue(Of GridIndex, Integer)()
+        openList.Enqueue(startGridIdx, 0)
 
-                ' Traverse the path from the finish point back to the start.
-                Dim finder As AStarAlgorithm = currPoint
-                Do Until finder Is Nothing
-                    resultPath.Add(finder.gridIdx)
-                    finder = finder.PreviousRef
-                Loop
-                resultPath.Reverse()
+        Dim gScore As New Dictionary(Of GridIndex, Integer)()
+        gScore(startGridIdx) = 0
 
-                For i As Integer = 1 To resultPath.Count - 1 Step 1
-                    Dim rawDirection As GridIndex = resultPath(i) - resultPath(i - 1)
+        Dim cameFrom As New Dictionary(Of GridIndex, GridIndex)()
 
-                    ' Select the direction maximizing the dot product with the raw direction.
-                    Dim adjustedDirection As GridIndex =
-                        Aggregate direction As GridIndex In StandardDirections
-                            Order By CalcDotProduct(rawDirection, direction) Descending
-                                Into First()
+        Dim Heuristic = Function(a As GridIndex, b As GridIndex) As Integer
+                            Return Math.Abs(a.x - b.x) + Math.Abs(a.y - b.y)
+                        End Function
 
-                    route.Add(adjustedDirection)
-                Next i
+        Dim directions As GridIndex() = {GridIndex.Up, GridIndex.Down, GridIndex.Left, GridIndex.Right}
+
+        While openList.Count > 0
+            Dim currPoint = openList.Dequeue()
+
+            If currPoint = finishGridIdx Then
+                Dim path As New List(Of GridIndex)
+                Dim current = currPoint
+
+                While cameFrom.ContainsKey(current)
+                    path.Add(current)
+                    current = cameFrom(current)
+                End While
+
+                path.Reverse()
+
+                Dim route As New List(Of GridIndex)
+                For i As Integer = 1 To path.Count - 1
+                    Dim direction = path(i) - path(i - 1)
+                    route.Add(direction)
+                Next
 
                 Return route
             End If
 
-            For Each direction As GridIndex In StandardDirections
-                Dim nextGridIdx As GridIndex = currPoint.gridIdx + direction
-
-                ' Note: `UBound(multiDimArray, dimension)` is used to get the upper
-                ' bound of a specific dimension in VB.NET, which is equivalent to
-                ' `multiDimArray.GetLength(dimension - 1) - 1` in C#, and might be
-                ' more intuitive for VB.NET developers.
+            For Each direction In directions
+                Dim nextGridIdx = currPoint + direction
 
                 If nextGridIdx.x < 0 OrElse nextGridIdx.x > UBound(walkableTerrain, 1) OrElse
                    nextGridIdx.y < 0 OrElse nextGridIdx.y > UBound(walkableTerrain, 2) Then
-                    ' If out of bounds, skip to the next iteration of the loop.
-                    Continue For
-                ElseIf Not walkableTerrain(nextGridIdx.x, nextGridIdx.y) Then
-                    ' If the terrain at the next grid index is not walkable, skip to
-                    ' the next iteration.
                     Continue For
                 End If
 
-                Dim nextPoint As New AStarAlgorithm(nextGridIdx, currPoint)
-                If closedList.Contains(nextPoint) Then Continue For
+                If Not walkableTerrain(nextGridIdx.x, nextGridIdx.y) Then
+                    Continue For
+                End If
 
-                With nextPoint
-                    .costG = currPoint.costG + 1
-                    .costH = SquaredMagnitude(.gridIdx, finishGridIdx)
-
-                    .costF = .costG + .costH  ' Essential for the A* algorithm.
-                End With
-
-                ' If the next point is already in the open list and has a higher G cost,
-                ' skip it, so that the same point within a worse path won't be processed
-                ' multiple times.
-                If Aggregate openPoint In openList
-                       Into Any(nextPoint.gridIdx = openPoint.gridIdx AndAlso
-                                nextPoint.costG > openPoint.costG) Then Continue For
-
-                Dim isNextPointInOpenList As Boolean =
-                    Aggregate openPoint As AStarAlgorithm In openList
-                        Into Any(openPoint.gridIdx.Equals(nextPoint.gridIdx))
-
-                If Not isNextPointInOpenList Then openList.Add(nextPoint)
-            Next direction
-        Loop
+                Dim tentativeG = gScore(currPoint) + 1
+                Dim existingG As Integer
+                If Not gScore.TryGetValue(nextGridIdx, existingG) OrElse tentativeG < existingG Then
+                    cameFrom(nextGridIdx) = currPoint
+                    gScore(nextGridIdx) = tentativeG
+                    Dim fScore = tentativeG + Heuristic(nextGridIdx, finishGridIdx)
+                    openList.Enqueue(nextGridIdx, fScore)
+                End If
+            Next
+        End While
 
         Return New List(Of GridIndex)
     End Function
