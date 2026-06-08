@@ -1,9 +1,0 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>Terminal_PAC_MAN_Game</RootNamespace>
-    <TargetFramework>net8.0</TargetFramework>
-  </PropertyGroup>
-
-</Project>
